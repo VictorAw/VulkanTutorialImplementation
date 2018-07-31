@@ -8,10 +8,12 @@
 
 #include <iostream>
 #include <string>
+#include <map>
 #include <set>
 
 #include "utilities.h"
 #include "context.h"
+#include "vulkan_setup.h"
 
 #ifndef NDEBUG
   #include "debug.h"
@@ -30,6 +32,8 @@ void initWindow(Context::GLFW &context);
 std::vector<char const *> getRequiredExtensions(Context::Vulkan const &context);
 void initVulkan(Context::Vulkan &context);
 void createVulkanInstance(Context::Vulkan &context);
+void pickVulkanPhysicalDevice(Context::Vulkan &context);
+int rateVulkanDeviceSuitability(VkPhysicalDevice device);
 void retrieveVulkanExtensionList(Context::Vulkan &context);
 bool verifyVulkanExtensionList(
   Context::Vulkan &context, 
@@ -131,6 +135,7 @@ void initVulkan(Context::Vulkan &context)
   #ifndef NDEBUG
     setupVulkanDebugCallbacks(context);
   #endif
+  pickVulkanPhysicalDevice(context);
 }
 
 void createVulkanInstance(Context::Vulkan &context)
@@ -287,6 +292,80 @@ inline bool checkValidationLayerSupport(Context::Vulkan const &context, std::str
   }
 
   return true;
+}
+
+void pickVulkanPhysicalDevice(Context::Vulkan &context)
+{
+  utilities::log("TRACE", "Picking a physical device for Vulkan");
+
+  uint32_t device_count = 0;
+  vkEnumeratePhysicalDevices(context.instance, &device_count, nullptr);
+
+  if (device_count == 0)
+  {
+    throw std::runtime_error("Failed to find GPU with Vulkan support");
+  }
+
+  std::vector<VkPhysicalDevice> devices(device_count);
+  vkEnumeratePhysicalDevices(context.instance, &device_count, devices.data());
+
+  // Ordered multimap automatically sorts by score
+  std::multimap<int, VkPhysicalDevice> candidates; 
+  for (VkPhysicalDevice const &device : devices)
+  {
+    int score = rateVulkanDeviceSuitability(device);
+    candidates.insert(std::make_pair(score, device));
+  }
+
+  // Pick best candidate
+  if (candidates.rbegin()->first > 0)
+  {
+    context.physical_device = candidates.rbegin()->second;
+  }
+  else
+  {
+    throw std::runtime_error("Failed to find a suitable GPU for Vulkan");
+  }
+  
+  utilities::log("TRACE", "Physical device found");
+}
+
+int rateVulkanDeviceSuitability(VkPhysicalDevice device)
+{
+  utilities::log("TRACE", "Rating vulkan device suitability");
+  VkPhysicalDeviceProperties device_properties;
+  vkGetPhysicalDeviceProperties(device, &device_properties);
+
+  VkPhysicalDeviceFeatures device_features;
+  vkGetPhysicalDeviceFeatures(device, &device_features);
+
+  // Application can't function without geometry shaders
+  if (!device_features.geometryShader)
+  {
+    utilities::log("TRACE", "Device has no geometry shader");
+    return 0;
+  }
+
+  QueueFamilyIndices indices = findQueueFamilies(device);
+  if (!indices.isComplete())
+  {
+    utilities::log("TRACE", "Device has no graphics queues");
+    return 0;
+  }
+
+  int score = 0;
+
+  // Discrete GPUs have a significant performance advantage
+  if (device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+  {
+    score += 1000;
+  }
+
+  // Maximum possible size of textures affects graphics quality
+  score += device_properties.limits.maxImageDimension2D;
+
+  utilities::log("TRACE", "Device given a score of " + std::to_string(score));
+  return score;
 }
 
 void run(Context &context)

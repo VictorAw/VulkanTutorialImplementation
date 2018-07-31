@@ -16,8 +16,9 @@ struct Context
   struct Vulkan
   {
     VkInstance instance;
+    VkPhysicalDevice physical_device = VK_NULL_HANDLE;
     std::vector<VkExtensionProperties> extensions;
-    
+
     #ifndef NDEBUG
       std::vector<char const *> validation_layers = {
         "VK_LAYER_LUNARG_standard_validation"
