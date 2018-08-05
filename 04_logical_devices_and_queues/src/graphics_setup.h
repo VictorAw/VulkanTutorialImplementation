@@ -19,12 +19,16 @@ void cleanup(Context::Graphics const &context);
     void retrieveExtensionList(Context::Graphics &context);
     bool verifyExtensionList(
       Context::Graphics const &context,
-      char const * const * const extensions,
-      std::uint32_t extension_count
+      std::uint32_t extension_count,
+      char const * const * const extensions
     );
     bool checkValidationLayerSupport(Context::Graphics const &context, std::string &message);
     void pickPhysicalDevice(Context::Graphics &context);
     void ratePhysicalDeviceSuitability(VkPhysicalDevice device);
+    #ifndef NDEBUG
+      void setupDebugCallbacks(Context::Graphics const &context);
+      void destroyDebugCallbacks(Context::Graphics const &context);
+    #endif
     void cleanup(Context::Graphics const &context);
   }
 #endif
