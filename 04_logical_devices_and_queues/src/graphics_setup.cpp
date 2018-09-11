@@ -3,7 +3,7 @@
 
 namespace Graphics
 {
-  void initGraphcis(Context::Graphics const &context)
+  void initGraphics(Context::Graphics const &context)
   {
     Debug::Log("TRACE", "Init graphics");
 
@@ -93,6 +93,27 @@ namespace Graphics
       }
 
       Debug::Log("TRACE", "Vulkan instance created");
+    }
+
+    void retrieveExtensionList(Context::Graphics &context)
+    {
+      Debug::Log("TRACE", "Retrieving Vulkan extension list");
+      std::uint32_t extension_count = 0;
+      vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, nullptr);
+
+      std::vector<VkExtensionProperties> &extensions = context.extensions;
+      extensions.resize(extension_count);
+      vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, extensions.data());
+
+      Debug::Log("TRACE", "Available extensions:");
+      for (VkExtensionProperties const &extension : extensions)
+      {
+        Debug::Log(std::string("  ") + extension.extensionName);
+      }
+      if (extensions.size() == 0)
+      {
+        Debug::Log();
+      }
     }
 
     void cleanup(Context::Graphics const &context)
